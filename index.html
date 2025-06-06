@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>제지 트리밍 지폭 최적화 도구</title>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        .form-checkbox:checked {
+            background-color: #2563EB; /* Tailwind blue-600 */
+            border-color: #2563EB;
+        }
+        .desired-width-item {
+            transition: all 0.3s ease-in-out;
+        }
+        .desired-width-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+<div class="container mx-auto p-4 sm:p-6 md:p-8">
+<header class="mb-6 md:mb-8">
+<h1 class="text-3xl font-bold text-center text-blue-700">트리밍 지폭 구성 조합</h1>
+<p class="text-center text-gray-600 mt-2">필수 포함/제외 및 가중치 설정을 통해 더욱 정교한 지폭 조합을 찾아보세요.</p>
+</header>
+<main>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+<!-- 입력 섹션 -->
+<div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg">
+<h2 class="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">입력 정보</h2>
+<div class="mb-4">
+<label class="block text-sm font-medium text-gray-700 mb-1" for="minTrim">설비 최소 지폭 (mm)</label>
+<input class="mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" id="minTrim" name="minTrim" placeholder="예: 3150" type="number"/>
+</div>
+<div class="mb-6">
+<label class="block text-sm font-medium text-gray-700 mb-1" for="maxTrim">설비 최대 지폭 (mm)</label>
+<input class="mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" id="maxTrim" name="maxTrim" placeholder="예: 3250" type="number"/>
+</div>
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2"><div><h3 class="text-lg font-semibold mb-3 text-gray-700">원하는 지폭 설정 (최대 5개)</h3></div><button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ml-4 mt-2 sm:mt-0 sm:w-auto w-full" id="calculateBtn">지폭 조합 계산하기</button></div><div class="space-y-4" id="desiredWidthsContainer">
+<!-- 원하는 지폭 입력 필드가 여기에 동적으로 생성됩니다. -->
+</div>
+<div class="mt-8 text-center">
+
+</div>
+</div>
+<!-- 결과 섹션 -->
+<div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
+<h2 class="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">계산 결과</h2>
+<div class="my-4 p-3 bg-red-100 text-red-700 rounded-md text-sm" id="errorMessages" style="display: none;"></div>
+<div class="text-center my-8" id="loadingIndicator" style="display: none;">
+<svg class="animate-spin h-10 w-10 text-blue-600 mx-auto" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+<path class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+</svg>
+<p class="text-blue-600 mt-3 text-sm">최적의 조합을 찾고 있습니다...</p>
+</div>
+<div class="text-gray-500 text-center py-6" id="noResultsMessage" style="display: none;">
+<svg class="h-12 w-12 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" stroke-width="1" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+                        조건에 맞는 조합을 찾을 수 없습니다. 입력 값을 확인하거나 필터 설정을 조정해주세요.
+                    </div>
+<div class="overflow-x-auto">
+<table class="min-w-full divide-y divide-gray-200" id="resultsTable" style="display: none;">
+<thead class="bg-gray-50">
+<tr>
+<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" scope="col">#</th>
+<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" scope="col">세부 구성</th>
+<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" scope="col">총 합계 (mm)</th>
+<!-- <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">가중치 점수</th> -->
+</tr>
+</thead>
+<tbody class="bg-white divide-y divide-gray-200 text-sm" id="resultsBody">
+<!-- 결과 행이 여기에 추가됩니다. -->
+</tbody>
+</table>
+<div class="mt-10 bg-yellow-50 border border-yellow-200 p-5 rounded-lg">
+<h3 class="text-lg font-semibold mb-3 text-yellow-800">중량 계산기</h3>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+<div>
+<label class="block text-sm font-medium">평량(g/㎡)</label>
+<input class="w-full px-3 py-2 border rounded" id="basisWeight" placeholder="예: 110" type="number"/>
+</div>
+<div>
+<label class="block text-sm font-medium">권취 1롤(m)</label>
+<input class="w-full px-3 py-2 border rounded" id="length" placeholder="예: 8,000" type="number"/>
+</div>
+<div>
+<label class="block text-sm font-medium">Batch 생산량(cut)</label>
+<input class="w-full px-3 py-2 border rounded" id="batch" placeholder="예: 5" type="number"/>
+</div>
+<div class="flex items-end">
+<button class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow" onclick="calculateWeights()">중량 계산</button>
+</div>
+</div>
+<div class="space-y-2 text-sm text-gray-700" id="weightResults"></div>
+
+<!-- 선택된 조합 합산 버튼 및 결과 표시 -->
+<div class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+  <h4 class="text-md font-semibold text-green-700 mb-2">선택된 조합 중량 합산</h4>
+  <button class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700" onclick="calculateSelectedWeight()">선택 조합 합산</button>
+  <div id="selectedWeightResults" class="mt-3 text-sm text-gray-700 space-y-2"></div>
+</div>
+
+<script>
+function calculateSelectedWeight() {
+  const basisWeight = parseFloat(document.getElementById('basisWeight').value);
+  const length = parseFloat(document.getElementById('length').value);
+  const batch = parseFloat(document.getElementById('batch').value);
+  const weightCards = document.querySelectorAll('#weightResults > div');
+  const checkboxes = document.querySelectorAll('input[name^="weightCheckbox"]:checked');
+  const resultArea = document.getElementById('selectedWeightResults');
+  resultArea.innerHTML = '';
+
+  if (isNaN(basisWeight) || isNaN(length) || isNaN(batch)) {
+    resultArea.innerHTML = '<span class="text-red-600">평량, 권취, 배치수를 모두 입력해주세요.</span>';
+    return;
+  }
+
+  const widthTotals = {};
+
+  checkboxes.forEach(checkbox => {
+    const index = parseInt(checkbox.value);
+    const comboCard = weightCards[index];
+    const lines = comboCard.innerText.split('\n');
+    lines.forEach(line => {
+      const match = line.match(/(\d+)mm × (\d+)롤/);
+      if (match) {
+        const width = parseFloat(match[1]);
+        const rolls = parseInt(match[2]);
+        widthTotals[width] = (widthTotals[width] || 0) + rolls;
+      }
+    });
+  });
+
+  let totalMT = 0;
+  const output = Object.entries(widthTotals).map(([width, rolls]) => {
+    const kg = (basisWeight * width * length / 1_000_000) * rolls;
+    const mt = kg / 1000;
+    totalMT += mt;
+    return `${width}mm × ${rolls}롤 = ${kg.toLocaleString()}kg → <strong>${mt.toFixed(3)} MT</strong>`;
+  });
+
+  resultArea.innerHTML = output.join('<br>') + `<br><strong class="text-blue-700">총합계: ${totalMT.toFixed(3)} MT</strong>`;
+}
+</script>
+
+<script>
+function calculateWeights() {
+    const basisWeight = parseFloat(document.getElementById('basisWeight').value);
+    const length = parseFloat(document.getElementById('length').value);
+    const batch = parseFloat(document.getElementById('batch').value);
+    const resultRows = document.querySelectorAll('#resultsBody tr');
+    const resultArea = document.getElementById('weightResults');
+    resultArea.innerHTML = '';
+
+    resultRows.forEach((row, index) => {
+        const cells = row.querySelectorAll('td');
+        const comboText = cells[1].innerText;
+        const pattern = /([0-9]+)mm\s*×\s*([0-9]+)/g;
+        let match;
+        let totalMT = 0;
+        let breakdown = [];
+
+        while ((match = pattern.exec(comboText)) !== null) {
+            const width = parseFloat(match[1]);
+            const count = parseFloat(match[2]);
+            const rolls = count * batch;
+            const weightKg = (basisWeight * width * length / 1000000) * rolls;
+            const weightMT = weightKg / 1000;
+            totalMT += weightMT;
+            breakdown.push(`${width}mm × ${rolls}롤 = ${weightKg.toLocaleString()}kg → <strong>${weightMT.toFixed(3)} MT</strong>`);
+        }
+
+        const div = document.createElement('div');
+        div.className = "p-3 bg-white border rounded shadow-sm";
+        div.innerHTML = `<label class='block mb-2'><input type='checkbox' name='weightCheckbox${index}' value='${index}' class='form-checkbox text-green-600 mr-2'>#${index + 1}</label>` + breakdown.join('<br>') + `<br><strong class="text-blue-700">총 중량: ${totalMT.toFixed(3)} MT</strong>`;
+        resultArea.appendChild(div);
+    });
+}
+</script>
+</div></div></div></main>
+</div>
+<script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const desiredWidthsContainer = document.getElementById('desiredWidthsContainer');
+            desiredWidthsContainer.innerHTML = ''; // 기존 정적 컨텐츠 초기화
+
+            for (let i = 1; i <= 5; i++) {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'desired-width-item space-y-2 p-3 border border-gray-200 rounded-lg shadow-sm bg-white';
+
+                // 지폭 값 입력
+                const widthInput = document.createElement('input');
+                widthInput.type = 'number';
+                widthInput.id = `width${i}`;
+                widthInput.name = `width${i}`;
+                widthInput.className = 'mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm';
+                let placeholderText = `지폭 ${i} 값 (mm)`;
+                if (i === 1) placeholderText = "지폭 1 값 (mm) (예: 500)";
+                else if (i === 2) placeholderText = "지폭 2 값 (mm) (예: 675)";
+                else if (i > 2) placeholderText = `지폭 ${i} 값 (mm) (옵션)`;
+                widthInput.placeholder = placeholderText;
+                itemDiv.appendChild(widthInput);
+
+                // 컨트롤 그룹 (체크박스, 가중치)
+                const controlsDiv = document.createElement('div');
+                controlsDiv.className = 'flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:justify-between sm:items-center text-xs mt-2';
+
+                // 필수 포함 체크박스
+                const mustIncludeDiv = document.createElement('div');
+                mustIncludeDiv.className = 'flex items-center';
+                const mustIncludeCheckbox = document.createElement('input');
+                mustIncludeCheckbox.type = 'checkbox';
+                mustIncludeCheckbox.id = `mustInclude${i}`;
+                mustIncludeCheckbox.name = `mustInclude${i}`;
+                mustIncludeCheckbox.className = 'form-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer';
+                const mustIncludeLabel = document.createElement('label');
+                mustIncludeLabel.htmlFor = `mustInclude${i}`;
+                mustIncludeLabel.className = 'ml-1.5 text-gray-700 cursor-pointer select-none';
+                mustIncludeLabel.textContent = '필수 포함';
+                mustIncludeDiv.appendChild(mustIncludeCheckbox);
+                mustIncludeDiv.appendChild(mustIncludeLabel);
+                controlsDiv.appendChild(mustIncludeDiv);
+
+                // 반드시 제외 체크박스
+                const excludeDiv = document.createElement('div');
+                excludeDiv.className = 'flex items-center';
+                const excludeCheckbox = document.createElement('input');
+                excludeCheckbox.type = 'checkbox';
+                excludeCheckbox.id = `exclude${i}`;
+                excludeCheckbox.name = `exclude${i}`;
+                excludeCheckbox.className = 'form-checkbox h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer';
+                const excludeLabel = document.createElement('label');
+                excludeLabel.htmlFor = `exclude${i}`;
+                excludeLabel.className = 'ml-1.5 text-gray-700 cursor-pointer select-none';
+                excludeLabel.textContent = '반드시 제외';
+                excludeDiv.appendChild(excludeCheckbox);
+                excludeDiv.appendChild(excludeLabel);
+                controlsDiv.appendChild(excludeDiv);
+
+                // 가중치 입력
+                const weightDiv = document.createElement('div');
+                weightDiv.className = 'flex items-center';
+                const weightLabel = document.createElement('label');
+                weightLabel.htmlFor = `weight${i}`;
+                weightLabel.className = 'mr-1.5 text-gray-700 select-none';
+                weightLabel.textContent = '가중치:';
+                const weightInput = document.createElement('input');
+                weightInput.type = 'number';
+                weightInput.id = `weight${i}`;
+                weightInput.name = `weight${i}`;
+                weightInput.value = '1'; // 기본값 1
+                weightInput.min = '1';   // 최소값 1 (양수)
+                weightInput.className = 'w-14 px-2 py-1 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-center';
+                weightDiv.appendChild(weightLabel);
+                weightDiv.appendChild(weightInput);
+                controlsDiv.appendChild(weightDiv);
+
+                itemDiv.appendChild(controlsDiv);
+                desiredWidthsContainer.appendChild(itemDiv);
+
+                // 필수 포함 <-> 반드시 제외 상호 배제 로직
+                mustIncludeCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        excludeCheckbox.checked = false;
+                    }
+                });
+                excludeCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        mustIncludeCheckbox.checked = false;
+                    }
+                });
+            }
+        });
+
+        document.getElementById('calculateBtn').addEventListener('click', function() {
+            const minTrimInput = document.getElementById('minTrim');
+            const maxTrimInput = document.getElementById('maxTrim');
+            
+            const errorMessagesDiv = document.getElementById('errorMessages');
+            const resultsTable = document.getElementById('resultsTable');
+            const resultsBody = document.getElementById('resultsBody');
+            const noResultsMessage = document.getElementById('noResultsMessage');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+
+            errorMessagesDiv.innerHTML = '';
+            errorMessagesDiv.style.display = 'none';
+            resultsBody.innerHTML = '';
+            resultsTable.style.display = 'none';
+            noResultsMessage.style.display = 'none';
+            loadingIndicator.style.display = 'block';
+
+            minTrimInput.classList.remove('border-red-500');
+            maxTrimInput.classList.remove('border-red-500');
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById(`width${i}`).classList.remove('border-red-500');
+            }
+            
+            const minTrim = parseFloat(minTrimInput.value);
+            const maxTrim = parseFloat(maxTrimInput.value);
+
+            let errors = [];
+            if (isNaN(minTrim) || minTrim <= 0) {
+                errors.push("설비 최소 지폭은 0보다 큰 숫자여야 합니다.");
+                minTrimInput.classList.add('border-red-500');
+            }
+            if (isNaN(maxTrim) || maxTrim <= 0) {
+                errors.push("설비 최대 지폭은 0보다 큰 숫자여야 합니다.");
+                maxTrimInput.classList.add('border-red-500');
+            }
+            if (!isNaN(minTrim) && !isNaN(maxTrim) && minTrim > maxTrim) {
+                errors.push("설비 최소 지폭은 최대 지폭보다 작거나 같아야 합니다.");
+                minTrimInput.classList.add('border-red-500');
+                maxTrimInput.classList.add('border-red-500');
+            }
+
+            const desiredWidths = []; // { value: number, mustInclude: boolean, exclude: boolean, weight: number, id: string }
+            for (let i = 1; i <= 5; i++) {
+                const widthInputEl = document.getElementById(`width${i}`);
+                const mustIncludeEl = document.getElementById(`mustInclude${i}`);
+                const excludeEl = document.getElementById(`exclude${i}`);
+                const weightInputEl = document.getElementById(`weight${i}`);
+
+                if (widthInputEl.value.trim() !== '') {
+                    const val = parseFloat(widthInputEl.value);
+                    let weightVal = parseInt(weightInputEl.value, 10);
+
+                    if (isNaN(val) || val <= 0) {
+                        errors.push(`지폭 ${i} 값은 0보다 큰 숫자여야 합니다.`);
+                        widthInputEl.classList.add('border-red-500');
+                    }
+                    if (isNaN(weightVal) || weightVal <= 0) {
+                        weightVal = 1; // 유효하지 않은 가중치는 1로 기본 설정
+                        weightInputEl.value = '1'; // UI에도 반영
+                    }
+                    
+                    // "필수 포함"과 "반드시 제외"가 동시에 체크된 경우 (UI 로직으로 방지되지만, 만약을 대비)
+                    if (mustIncludeEl.checked && excludeEl.checked) {
+                         errors.push(`지폭 ${i}은(는) '필수 포함'과 '반드시 제외'로 동시에 설정될 수 없습니다.`);
+                         // 이 경우 한쪽을 강제로 해제하거나 오류 처리 (현재 UI는 방지)
+                    }
+
+
+                    if (!isNaN(val) && val > 0) {
+                        desiredWidths.push({
+                            value: val,
+                            mustInclude: mustIncludeEl.checked,
+                            exclude: excludeEl.checked,
+                            weight: weightVal,
+                            id: `width${i}`
+                        });
+                    }
+                }
+            }
+
+            if (desiredWidths.length === 0 && errors.length === 0) {
+                errors.push("하나 이상의 원하는 지폭을 입력하고 설정해야 합니다.");
+            }
+
+            if (errors.length > 0) {
+                errorMessagesDiv.innerHTML = errors.map(e => `<div>- ${e}</div>`).join('');
+                errorMessagesDiv.style.display = 'block';
+                loadingIndicator.style.display = 'none';
+                return;
+            }
+
+            const results = [];
+            const numDesiredWidths = desiredWidths.length;
+            
+            function findCombinationsRecursive(currentIndex, currentSum, currentCounts) {
+                if (currentSum > maxTrim && currentSum > 0) { 
+                    return;
+                }
+
+                if (currentIndex === numDesiredWidths) {
+                    if (currentSum >= minTrim && currentSum <= maxTrim) {
+                        // 필수 포함 조건 확인
+                        let meetsMustIncludeCriteria = true;
+                        for (let k = 0; k < numDesiredWidths; k++) {
+                            if (desiredWidths[k].mustInclude && currentCounts[k] === 0) {
+                                meetsMustIncludeCriteria = false;
+                                break;
+                            }
+                        }
+
+                        if (meetsMustIncludeCriteria) {
+                            let combinationString = "";
+                            let firstPart = true;
+                            let itemsActuallyUsed = false;
+                            let currentWeightScore = 0;
+
+                            for (let i = 0; i < numDesiredWidths; i++) {
+                                if (currentCounts[i] > 0) {
+                                    itemsActuallyUsed = true;
+                                    if (!firstPart) {
+                                        combinationString += " + ";
+                                    }
+                                    combinationString += `<span class="text-indigo-600 font-medium">${desiredWidths[i].value}mm</span> × ${currentCounts[i]}`;
+                                    firstPart = false;
+                                    currentWeightScore += currentCounts[i] * desiredWidths[i].weight;
+                                }
+                            }
+                            if (itemsActuallyUsed) { // 빈 조합은 제외
+                                results.push({ 
+                                    combination: combinationString, 
+                                    total: currentSum, 
+                                    weightScore: currentWeightScore 
+                                });
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                const currentWidthInfo = desiredWidths[currentIndex];
+
+                // "반드시 제외" 조건 처리
+                if (currentWidthInfo.exclude) {
+                    const newCountsArray = [...currentCounts];
+                    newCountsArray[currentIndex] = 0; // 제외된 항목은 0개 사용
+                    findCombinationsRecursive(currentIndex + 1, currentSum, newCountsArray);
+                } else {
+                    // 제외되지 않은 항목에 대해서만 개수 루프 실행
+                    for (let count = 0; ; count++) {
+                        const nextPotentialSum = currentSum + (count * currentWidthInfo.value);
+                        if (nextPotentialSum > maxTrim && currentWidthInfo.value > 0) { // currentWidthInfo.value > 0 조건 추가
+                            if (count > 0) break; // 0개 사용은 다음 지폭으로 넘어갈 수 있음
+                            if (count === 0 && currentSum > maxTrim) break; // 현재 합계만으로도 초과 시 중단
+                        }
+                        
+                        const newCountsArray = [...currentCounts];
+                        newCountsArray[currentIndex] = count;
+                        findCombinationsRecursive(currentIndex + 1, nextPotentialSum, newCountsArray);
+                        
+                        if (currentWidthInfo.value <= 0) { // 0 이하의 지폭 값은 무한 루프를 유발할 수 있으므로 1번만 시도
+                             break;
+                        }
+                        // 너무 많은 반복 방지 (안전 장치)
+                        if (count > (maxTrim / (currentWidthInfo.value > 0 ? currentWidthInfo.value : 1)) + 5 && count > 50) { // 좀 더 합리적인 상한 설정
+                            console.warn(`High count (${count}) for width ${currentWidthInfo.value}. Loop terminated.`);
+                            break;
+                        }
+                         if (nextPotentialSum === currentSum && count > 0) { // 합계 변화 없고 count만 증가하는 경우 (지폭 값이 0인 경우)
+                            break;
+                        }
+                    }
+                }
+            }
+
+            const initialCounts = new Array(numDesiredWidths).fill(0);
+
+            setTimeout(() => {
+                try {
+                    findCombinationsRecursive(0, 0, initialCounts);
+
+                    if (results.length > 0) {
+                        results.sort((a, b) => {
+                            if (b.weightScore !== a.weightScore) { // 1. 가중치 점수 내림차순
+                                return b.weightScore - a.weightScore;
+                            }
+                            if (a.total !== b.total) { // 2. 총 합계 오름차순
+                                return a.total - b.total;
+                            }
+                            return a.combination.localeCompare(b.combination); // 3. 조합 문자열 오름차순
+                        });
+
+                        results.forEach((result, idx) => {
+                            const row = resultsBody.insertRow();
+                            row.className = idx % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100';
+                            row.className += ' transition-colors duration-150';
+                            
+                            const cellNum = row.insertCell();
+                            cellNum.className = 'px-4 py-3 whitespace-nowrap text-gray-500';
+                            cellNum.textContent = idx + 1;
+
+                            const cellCombo = row.insertCell();
+                            cellCombo.className = 'px-4 py-3 whitespace-nowrap text-gray-700';
+                            cellCombo.innerHTML = result.combination;
+
+                            const cellTotal = row.insertCell();
+                            cellTotal.className = 'px-4 py-3 whitespace-nowrap text-gray-700 font-semibold';
+                            cellTotal.textContent = result.total;
+
+                            // 가중치 점수 표시 (선택 사항)
+                            // const cellWeight = row.insertCell();
+                            // cellWeight.className = 'px-4 py-3 whitespace-nowrap text-gray-500';
+                            // cellWeight.textContent = result.weightScore;
+                        });
+                        resultsTable.style.display = 'table';
+                    } else {
+                        noResultsMessage.style.display = 'block';
+                    }
+                } catch (e) {
+                    console.error("Error during calculation:", e);
+                    errorMessagesDiv.innerHTML = `<div>계산 중 오류가 발생했습니다: ${e.message}. 콘솔을 확인해주세요.</div>`;
+                    errorMessagesDiv.style.display = 'block';
+                } finally {
+                    loadingIndicator.style.display = 'none';
+                }
+            }, 10);
+        });
+    </script>
+</body>
+</html>
