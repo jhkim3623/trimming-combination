@@ -42,7 +42,16 @@
 <!-- 입력 섹션 -->
 <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg">
 <h2 class="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">입력 정보</h2>
-<div class="mb-4">
+<div class="mb-6 space-y-2">
+<label class="block text-sm font-medium text-gray-700" for="paperCompany">제지사 선택</label>
+<select class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm sm:text-sm" id="paperCompany">
+<option value="">제지사를 선택하세요</option>
+</select>
+<label class="block text-sm font-medium text-gray-700" for="paperDetail">세부 항목 선택</label>
+<select class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm sm:text-sm" disabled="" id="paperDetail">
+<option value="">세부 항목을 선택하세요</option>
+</select>
+</div><div class="mb-4">
 <label class="block text-sm font-medium text-gray-700 mb-1" for="minTrim">설비 최소 지폭 (mm)</label>
 <input class="mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" id="minTrim" name="minTrim" placeholder="예: 3150" type="number"/>
 </div>
@@ -50,12 +59,10 @@
 <label class="block text-sm font-medium text-gray-700 mb-1" for="maxTrim">설비 최대 지폭 (mm)</label>
 <input class="mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" id="maxTrim" name="maxTrim" placeholder="예: 3250" type="number"/>
 </div>
-
 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2"><div><h3 class="text-lg font-semibold mb-3 text-gray-700">원하는 지폭 설정 (최대 5개)</h3></div><button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ml-4 mt-2 sm:mt-0 sm:w-auto w-full" id="calculateBtn">지폭 조합 계산하기</button></div><div class="space-y-4" id="desiredWidthsContainer">
 <!-- 원하는 지폭 입력 필드가 여기에 동적으로 생성됩니다. -->
 </div>
 <div class="mt-8 text-center">
-
 </div>
 </div>
 <!-- 결과 섹션 -->
@@ -109,57 +116,7 @@
 </div>
 </div>
 <div class="space-y-2 text-sm text-gray-700" id="weightResults"></div>
-
-<!-- 선택된 조합 합산 버튼 및 결과 표시 -->
-<div class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-  <h4 class="text-md font-semibold text-green-700 mb-2">선택된 조합 중량 합산</h4>
-  <button class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700" onclick="calculateSelectedWeight()">선택 조합 합산</button>
-  <div id="selectedWeightResults" class="mt-3 text-sm text-gray-700 space-y-2"></div>
 </div>
-
-<script>
-function calculateSelectedWeight() {
-  const basisWeight = parseFloat(document.getElementById('basisWeight').value);
-  const length = parseFloat(document.getElementById('length').value);
-  const batch = parseFloat(document.getElementById('batch').value);
-  const weightCards = document.querySelectorAll('#weightResults > div');
-  const checkboxes = document.querySelectorAll('input[name^="weightCheckbox"]:checked');
-  const resultArea = document.getElementById('selectedWeightResults');
-  resultArea.innerHTML = '';
-
-  if (isNaN(basisWeight) || isNaN(length) || isNaN(batch)) {
-    resultArea.innerHTML = '<span class="text-red-600">평량, 권취, 배치수를 모두 입력해주세요.</span>';
-    return;
-  }
-
-  const widthTotals = {};
-
-  checkboxes.forEach(checkbox => {
-    const index = parseInt(checkbox.value);
-    const comboCard = weightCards[index];
-    const lines = comboCard.innerText.split('\n');
-    lines.forEach(line => {
-      const match = line.match(/(\d+)mm × (\d+)롤/);
-      if (match) {
-        const width = parseFloat(match[1]);
-        const rolls = parseInt(match[2]);
-        widthTotals[width] = (widthTotals[width] || 0) + rolls;
-      }
-    });
-  });
-
-  let totalMT = 0;
-  const output = Object.entries(widthTotals).map(([width, rolls]) => {
-    const kg = (basisWeight * width * length / 1_000_000) * rolls;
-    const mt = kg / 1000;
-    totalMT += mt;
-    return `${width}mm × ${rolls}롤 = ${kg.toLocaleString()}kg → <strong>${mt.toFixed(3)} MT</strong>`;
-  });
-
-  resultArea.innerHTML = output.join('<br>') + `<br><strong class="text-blue-700">총합계: ${totalMT.toFixed(3)} MT</strong>`;
-}
-</script>
-
 <script>
 function calculateWeights() {
     const basisWeight = parseFloat(document.getElementById('basisWeight').value);
@@ -189,7 +146,7 @@ function calculateWeights() {
 
         const div = document.createElement('div');
         div.className = "p-3 bg-white border rounded shadow-sm";
-        div.innerHTML = `<label class='block mb-2'><input type='checkbox' name='weightCheckbox${index}' value='${index}' class='form-checkbox text-green-600 mr-2'>#${index + 1}</label>` + breakdown.join('<br>') + `<br><strong class="text-blue-700">총 중량: ${totalMT.toFixed(3)} MT</strong>`;
+        div.innerHTML = `<strong>#${index + 1}</strong><br>` + breakdown.join('<br>') + `<br><strong class="text-blue-700">총 중량: ${totalMT.toFixed(3)} MT</strong>`;
         resultArea.appendChild(div);
     });
 }
@@ -516,5 +473,64 @@ function calculateWeights() {
             }, 10);
         });
     </script>
-</body>
+<script id="paperDataJson" type="application/json">[{"제지사": "YUEYANG", "지종": "SKY FINE KRAFT", "공장": "", "트리밍": "3150~3250", "구분": "", "평량": 110, "id": 0}, {"제지사": "OJI", "지종": "크라프트지", "공장": "KASUGAI", "트리밍": "4600~5100", "구분": "경,중,Semi", "평량": "", "id": 1}, {"제지사": "OJI", "지종": "크라프트지", "공장": "KURE", "트리밍": "4700~5020", "구분": "경,WKP", "평량": "", "id": 2}, {"제지사": "OJI", "지종": "크라프트지", "공장": "KURE", "트리밍": "3600~4240", "구분": "중", "평량": "", "id": 3}, {"제지사": "OJI", "지종": "크라프트지", "공장": "KURE", "트리밍": "3600~4140", "구분": "Semi", "평량": "", "id": 4}, {"제지사": "OJI", "지종": "크라프트지", "공장": "KURE 5호기", "트리밍": "4700~5020", "구분": "KRAFT 편광", "평량": 50, "id": 5}, {"제지사": "CHUETSU", "지종": "크라프트지", "공장": "TAKAOKA(주생산)", "트리밍": "3000~3230", "구분": "", "평량": "50,60,70,80,100,120", "id": 6}, {"제지사": "CHUETSU", "지종": "크라프트지", "공장": "SENDAI", "트리밍": "2700~3000", "구분": "", "평량": "50,60,70,80,100,120", "id": 7}, {"제지사": "OJI", "지종": "MF", "공장": "KURE", "트리밍": "4700- 5020", "구분": "", "평량": "", "id": 8}, {"제지사": "NPI", "지종": "", "공장": "SHIRAOI", "트리밍": "4400-4950", "구분": "", "평량": "", "id": 9}, {"제지사": "NPI", "지종": "MF", "공장": "아사히가와", "트리밍": "2610~3288", "구분": "", "평량": "", "id": 10}, {"제지사": "NPI", "지종": "MG", "공장": "", "트리밍": "3000-3280", "구분": "", "평량": "", "id": 11}, {"제지사": "NPI", "지종": "MG", "공장": "", "트리밍": "2400-2700", "구분": "", "평량": "", "id": 12}, {"제지사": "CHUETSU", "지종": "상질지", "공장": "TAKAOKA", "트리밍": "5100~5355", "구분": "RAICHO", "평량": "52.3 64 81.4 90 104.7 127.9 157", "id": 13}, {"제지사": "CHUETSU", "지종": "상질지", "공장": "SENDAI", "트리밍": "3000~3260", "구분": "RAICHO", "평량": "52.3 64 81.4 90 104.7 127.9 157", "id": 14}, {"제지사": "CHUETSU", "지종": "상질지", "공장": "SENDAI", "트리밍": "3000~3260", "구분": "EWWF", "평량": "60,70,80,89,100,120", "id": 15}, {"제지사": "CHUETSU", "지종": "상질지(무형광)", "공장": "SENDAI", "트리밍": "3000~3260", "구분": "RAICHO OBA-F", "평량": "52.3 64 95", "id": 16}, {"제지사": "HOKUETSU", "지종": "상질지(무형광)", "공장": "", "트리밍": "5480~5600", "구분": "Kinmari V", "평량": "52.3 64 81.4 104.7", "id": 17}, {"제지사": "HOKUETSU", "지종": "상질지Ⅰ", "공장": "", "트리밍": "4640~4950", "구분": "Kinmari SW", "평량": "60.2 64 70 81.4 104.7 ", "id": 18}, {"제지사": "HOKUETSU", "지종": "상질지Ⅱ", "공장": "", "트리밍": "3000~3300", "구분": "Kinmari SW", "평량": "60.2 64 70 81.4 104.7 ", "id": 19}, {"제지사": "HOKUETSU", "지종": "상질지(무형광)", "공장": "", "트리밍": "4640~4950", "구분": "KISHU N", "평량": "64 81.4 90 104.7 127.9 157", "id": 20}, {"제지사": "HOKUETSU", "지종": "컵지", "공장": "7MC", "트리밍": "4800~4950", "구분": "", "평량": "90 100 120 150 160 170", "id": 21}, {"제지사": "HOKUETSU", "지종": "컵지", "공장": "8MC", "트리밍": "3000~3300", "구분": "", "평량": "170 180 190 ", "id": 22}, {"제지사": "NPI", "지종": "백색박리지", "공장": "SHIRAOI 8MC", "트리밍": "4400~4950", "구분": "", "평량": 70, "id": 23}, {"제지사": "NPI", "지종": "백색박리지", "공장": "SHIRAOI 10MC", "트리밍": "6100-6430", "구분": "", "평량": 70100, "id": 24}, {"제지사": "NPI", "지종": "백색박리지", "공장": "IWAKINI 8MC", "트리밍": "4560~4960", "구분": "", "평량": "70, 80, 100", "id": 25}, {"제지사": "NPI", "지종": "백색박리지", "공장": "OOTAKA", "트리밍": "3000-3300", "구분": "", "평량": 70100, "id": 26}, {"제지사": "NPI", "지종": "황색박리지", "공장": "ASAHIKAWA", "트리밍": "3000~3288", "구분": "", "평량": "75, 90", "id": 27}, {"제지사": "NPI", "지종": "상질지(무형광)", "공장": "SHIRAOI", "트리밍": "6100~6430", "구분": "", "평량": "52.3 64 81.4 90 104.7 127.9 157", "id": 28}, {"제지사": "NPI", "지종": "상질지", "공장": "SHIRAOI", "트리밍": "6080~6304", "구분": "", "평량": "52.3,  64, 81.4, 127.9", "id": 29}, {"제지사": "NPI", "지종": "상질지", "공장": "SHIRAOI", "트리밍": "4400~4940", "구분": "", "평량": "52.3,  64, 81.4, 127.10", "id": 30}]</script><script>
+const paperData = JSON.parse(document.getElementById("paperDataJson").textContent);
+
+const companySelect = document.getElementById('paperCompany');
+const detailSelect = document.getElementById('paperDetail');
+const minTrimInput = document.getElementById('minTrim');
+const maxTrimInput = document.getElementById('maxTrim');
+
+// 제지사 목록 구성
+const companies = [...new Set(paperData.map(item => item["제지사"]))];
+companies.forEach(company => {
+    const opt = document.createElement('option');
+    opt.value = company;
+    opt.textContent = company;
+    companySelect.appendChild(opt);
+});
+
+// 제지사 선택 시 세부 항목 구성
+companySelect.addEventListener('change', () => {
+    const selected = companySelect.value;
+    detailSelect.innerHTML = '<option value="">세부 항목을 선택하세요</option>';
+    detailSelect.disabled = true;
+    minTrimInput.value = '';
+    maxTrimInput.value = '';
+
+    if (!selected) return;
+
+    const matches = paperData.filter(p => p["제지사"] === selected);
+
+    matches.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+
+        const species = item["지종"] ? item["지종"].toUpperCase() : '없음';
+        const trim = item["트리밍"] || '없음';
+        const factory = item["공장"] || '없음';
+        const type = item["구분"] || '없음';
+        const weight = item["평량"] || '없음';
+
+        opt.textContent =
+            `[지종] ★ ${species} ★ | 트리밍: ★ ${trim} ★ | 공장: ${factory} | 구분: ${type} | 평량: ${weight}`;
+        detailSelect.appendChild(opt);
+    });
+
+    detailSelect.disabled = false;
+});
+
+// 세부 항목 선택 시 트리밍 입력란 자동 반영
+detailSelect.addEventListener('change', () => {
+    const selectedId = parseInt(detailSelect.value);
+    const entry = paperData.find(p => p.id === selectedId);
+    if (!entry) return;
+
+    const trimMatch = (entry["트리밍"] || "").match(/(\d+)[^\d]+(\d+)/);
+    if (trimMatch) {
+        minTrimInput.value = trimMatch[1];
+        maxTrimInput.value = trimMatch[2];
+    }
+});
+</script></body>
 </html>
